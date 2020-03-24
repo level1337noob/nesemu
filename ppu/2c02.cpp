@@ -137,7 +137,7 @@ void Ppu::copy_pattern_table()
 
 
 const u8 Ppu::access_nametable(const u16 addr,
-							   const u8 mirrored)
+				const u8 mirrored)
 {
 	u8 rv;
 	if (mirrored) {
