@@ -5,4 +5,4 @@ Requires also the ImGui headers include it and debug the CPU
 
 Some TODOs i forgot
 Making the Opcode Disassembly in the Cpu Log only shows the registers pc sp processor status in their font style
-Remaking the PPU last time was on a nametable bug
+Remaking the PPU scrolling v-ram address and shifting the attribute and background registers were bugged in timing so i had to remake it again
