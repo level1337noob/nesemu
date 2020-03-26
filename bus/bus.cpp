@@ -67,12 +67,12 @@ u8 Bus::cpu_load(u16 addr)
 	}
 
 	if (addr >= 0x2000 && addr <= 0x3FFF) {
-		return ppu->register_load(addr & 0x2007);
+		return ppu->load(addr & 0x2007);
 	}
 
 	if (addr >= 0x4000 && addr <= 0x4017) {
 		if (addr == OAMDMA) {
-			return ppu->register_load(addr);
+			return ppu->load(addr);
 		}
 
 		general_log.Report("Unhandled read to IO $%04x\n", addr);
@@ -101,13 +101,12 @@ void Bus::cpu_store(u16 addr, u8 value)
 	}
 
 	if (addr >= 0x2000 && addr <= 0x3FFF) {
-		return ppu->register_store(addr & 0x2007, value);
+		return ppu->store(addr & 0x2007, value);
 	}
 
 	if (addr >= 0x4000 && addr <= 0x4017) {
 		if (addr == OAMDMA) {
-			ppu->register_store(addr, value);
-			return;
+			return ppu->store(addr, value);
 		}
 		
 		general_log.Report("Unhandled write to IO at $%04x with $%02X\n", addr, value);
@@ -120,7 +119,6 @@ void Bus::cpu_store(u16 addr, u8 value)
 	}
 
 	if (addr >= 0x4020 && addr <= 0x7FFF) {
-		//general_log.Report("Unused address at 0x%04X with value 0x%02X\n", addr, value);
 		return;
 	}
 	return (this->*cart_store)(addr, value);

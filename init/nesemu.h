@@ -9,56 +9,58 @@
 
 class NesEmu {
 private:
-	// Headers main
 	const char *file {};
 	unsigned char *rom {};
 	const char *current_file {};
 	int size {};
 
-	// Bus connector etc
 	iNesMapper *mapper;
 	Bus bus;
 	Cpu cpu;
 	Ppu ppu;
 
-	SDL_Rect scale {};
 	SDL_Window *window {};
 	SDL_Renderer *render {};
 	SDL_Event ev;
 	SDL_Texture *tex {};
-	u8 *framebuffer {};
+	SDL_Rect scale {};
+
 public:
-	int w{}, h{};
+	int w { 256 }, h { 240 };
 	bool failed {};
 	bool fullscreen_enabled {};
 	bool realtime {};
-	bool debug {};
+	bool broken_emulator_state { };
 	bool main_menu_bar {true};
-	float s {1.5f};
-	bool reset {};
-	NesEmu();
+
+	// Update the frame time from the signal generator
+
+	void clock(unsigned int machine_cycles);
+	void emit_interrupts(void);
+
+
+	// ROM Loader
 	bool load_rom(const char *file);
+
+	// Reset the ROM and all the emulator state
+	bool reset_state();
+
+	// U/I stuff
+	bool draw_menu_bar();
+	bool draw_memory_editor();
+
+	// Debug tools for UI
+	bool show_memedit {};
+
+	// Updates the display from the video renderer
+	void update_video_renderer();
+
+	// Runs the main loop
 	void run();
-	void render_display();
-	void copy_pixels(u32 *pixels, u32 *display);
-	SDL_Texture *pattern_tex0 {};
-	SDL_Texture *pattern_tex1 {};
-
-	void render_pattern_texture(SDL_Texture *texture, u8 nn = 0);
-
-	// Cycling + debugging cycles
-	void cycle_frame();
-	void cycle_line();
-	void cycle_pixel();
-
-	bool draw_ui();
-
-	// Updates etc
-	void update_audio();
-	void update_interrupts();
-	void update_timers();
-	void update_video();
+	NesEmu();
 	~NesEmu();
 };
+
+typedef NesEmu NES_System;
 
 #endif

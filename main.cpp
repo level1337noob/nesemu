@@ -5,15 +5,16 @@
 
 #define DEBUG_FILE "tests/nestest/nestest.nes"
 
-static NesEmu emulator;
-void err(int) { emulator.failed = true; }
+static NES_System noob_nes;
+void err(int) { noob_nes.failed = true; exit(0); }
+
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, err);
-	if (!emulator.load_rom(DEBUG_FILE)) {
+	if (!noob_nes.load_rom(DEBUG_FILE)) {
 		return 2;
 	}
 
-	emulator.run();
+	noob_nes.run();
 	return 0;
 }
