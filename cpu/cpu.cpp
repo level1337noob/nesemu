@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cpu/cpu.h>
-static Instruction ins;
 void Cpu::attach_ppu(Ppu *ppu) { this->ppu = ppu; }
 void Cpu::attach_bus(Bus *bus) { this->bus = bus; }
 inline void Cpu::stf(u8 flag) { P |= flag; } // set the flag
@@ -110,8 +109,8 @@ void rla(Cpu *cpu, u16 a, u8 v) { bool t = (v & 0x80) != 0; v = (v << 1) | ((cpu
 void rra(Cpu *cpu, u16 a, u8 v) { bool t = (v & 0x01) != 0; v = (v >> 1) | ((cpu->P & C) << 7); t ? cpu->stf(C) : cpu->clf(C); cpu->write(a, v); cpu->A &= v; nz(cpu->A); }
 void slo(Cpu *cpu, u16 a, u8 v) { v&0x80?cpu->stf(C):cpu->clf(C); v<<=1; cpu->write(a, v); cpu->A |= v; nz(cpu->A); }
 void sre(Cpu *cpu, u16 a, u8 v) { v&0x01?cpu->stf(C):cpu->clf(C);cpu->A^=(v>>1);nz(cpu->A);cpu->write(a, v>>1); }
-void Cpu::tick(u8 v) { _cycle += v; } // the addressing modes
-bool Cpu::clock(Instruction& i) // decode pla
+void Cpu::tick(u8 v) { ticks_per_instruction += v; } // the addressing modes
+unsigned char Cpu::clock() // decode pla
 {
 	#define zpg_x() ((read(pc)+X)&0xFF)
 	#define zpg_y() ((read(pc)+Y)&0xFF)
@@ -121,11 +120,9 @@ bool Cpu::clock(Instruction& i) // decode pla
 	#define l(i) (read16(pc)+i)
 	#define misfire_a(g) if ((read16(pc)+g)&0x10000) tick(1); else if (((read16(pc)&0xFF)+g)&0x100) tick(1)
 	#define I u16 n = ind_y()+Y
-	#define o(_i, b, c, ...) case (_i): {i.bytes = b; this->tick(c); __VA_ARGS__} break;
-
-	_cycle = 0;
-	i.old_cycles = cycles;
-	switch (i.opcode = read(i.old_pc = pc++)) {
+	#define o(_i, b, c, ...) case (_i): {this->tick(c); __VA_ARGS__} break;
+	ticks_per_instruction = 0;
+	switch (read(pc++)) {
 	//	...
 	o(0x4C, 3, 3, jmp(this, read16(pc)); ) o(0xA2, 2, 2, ldx(this, read(pc++)); )
 	o(0x86, 2, 3, stx(this, read(pc++)); ) o(0x20, 3, 6, jsr(this); )
@@ -210,7 +207,6 @@ bool Cpu::clock(Instruction& i) // decode pla
 	o(0x17, 2, 6, slo(this, (read(pc)+X)&0xFF, read((read(pc)+X)&0xFF)); pc += 1; )
 	o(0x1B, 3, 7, slo(this, l(Y), read(l(Y))); pc += 2; ) // no misfires
 	o(0x1F, 3, 7, slo(this, l(X), read(l(X))); pc += 2; ) // no misfires
-
 	o(0x23, 2, 8, rla(this, ind_x(), read(ind_x())); pc += 1; )
 	o(0x27, 2, 5, rla(this, read(pc), read(read(pc))); pc += 1; )
 	o(0x2F, 2, 6, rla(this, read16(pc), read(read16(pc))); pc += 2; )
@@ -218,7 +214,6 @@ bool Cpu::clock(Instruction& i) // decode pla
 	o(0x37, 2, 6, rla(this, (read(pc)+X)&0xFF, read((read(pc)+X)&0xFF)); pc += 1; )
 	o(0x3B, 3, 7, rla(this, l(Y), read(l(Y))); pc += 2; ) // no misfires
 	o(0x3F, 3, 7, rla(this, l(X), read(l(X))); pc += 2; ) // no misfires
-
 	o(0x43, 2, 8, sre(this, ind_x(), read(ind_x())); pc += 1; )
 	o(0x47, 2, 5, sre(this, read(pc), read(read(pc))); pc += 1; )
 	o(0x4F, 2, 6, sre(this, read16(pc), read(read16(pc))); pc += 2; )
@@ -226,7 +221,6 @@ bool Cpu::clock(Instruction& i) // decode pla
 	o(0x57, 2, 6, sre(this, (read(pc)+X)&0xFF, read((read(pc)+X)&0xFF)); pc += 1; )
 	o(0x5B, 3, 7, sre(this, l(Y), read(l(Y))); pc += 2; ) // no misfires
 	o(0x5F, 3, 7, sre(this, l(X), read(l(X))); pc += 2; ) // no misfires
-
 	o(0x63, 2, 8, rra(this, ind_x(), read(ind_x())); pc += 1; )
 	o(0x67, 2, 5, rra(this, read(pc), read(read(pc))); pc += 1; )
 	o(0x6F, 2, 6, rra(this, read16(pc), read(read16(pc))); pc += 2; )
@@ -236,25 +230,7 @@ bool Cpu::clock(Instruction& i) // decode pla
 	o(0x7F, 3, 7, rra(this, l(X), read(l(X))); pc += 2; ) // no misfires
 	#undef I
 	case 0x00: brk(); break;
-	default:
-		cpu_log.Report("[ERROR] Failed opcode 0x%02X\n", i.opcode);
-		break;
+	default: cpu_log.Report("[ERROR] Failed opcode 0x%02X\n", read(pc-1)); failed_opcode = true; break;
 	}
-
-	cycles += _cycle;
-	i.old_cycles = cycles - (cycles - i.old_cycles);
-	return true;
-}
-// cycle each instruction at a time with the ppu 3x the speed
-bool Cpu::cycle(void)
-{
-	// Clock the CPU
-	clock(ins);
-
-	// Clock the PPU 2x times the CPU
-	for (int i = 0; i < _cycle * 3; i++) {
-		ppu->clock();
-		if (ppu->nmi) { ppu->nmi = 0, nmi(); }
-	}
-	return true;
+	return ticks_per_instruction;
 }

@@ -28,47 +28,47 @@ public:
 class Cpu {
 private:
 	Bus *bus;
-	Ppu *ppu; // temp struct
+	Ppu *ppu;
+	Instruction ins {};
 public:
-	u8 A {}, X {}, Y {}, P {}, S {};
-	u32 cycles {};
-	u8 _cycle {};
-	u16 pc {};
-
 	void attach_ppu(Ppu *ppu);
 	void attach_bus(Bus *bus);
-	// status flag changes
-	inline void stf(u8 flag);
-	inline void clf(u8 flag);
-	void tick(u8 v);
+	bool failed_opcode {};
 
 	// r/w ops
 	u8 read(u16);
 	inline void write(u16, u8);
 	inline u16 read16(u16);
 	inline void write16(u16, u8);
+
+
+
+	void power_on(u16 addr = 0xC000); // sets all the registers back in place when starting up
+	u32 cycles {};
+	u8 ticks_per_instruction {};
+
+
+	// GPRs
+	u8 A {}, X {}, Y {}, P {}, S {};
+	u16 pc {};
+	// status flag changes
+	inline void stf(u8 flag);
+	inline void clf(u8 flag);
+	void tick(u8 v);
 	// stack ops
 	inline void push(u8);
 	inline u8 pop();
 	inline void push16(u16);
 	inline u16 pop16();
-	
-	void power_on(u16 addr = 0xC000); // sets all the registers back in place when starting up
-	// after reset
-	void reset();
 
+	// interrupt vectors
+	void reset(void);
 	void rst(void);
-	void nmi(void);
 	void irq(void);
 	void brk(void);
 
-	bool execute(float ms); /* executes the emulator state at one frame at a time */
-
-	bool clock(Instruction& ins);
-	bool cycle();
-
-	// setup the function vectors after interrupt brk whatever after pre render scanline
-	void debug_tty_cpu(Instruction i);
+	void nmi(void);
+	unsigned char clock(); // only get the clocks of per instruction
 };
 
 #endif
